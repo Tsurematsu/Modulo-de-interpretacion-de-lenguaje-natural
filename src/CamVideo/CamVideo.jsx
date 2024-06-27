@@ -1,11 +1,15 @@
 import { useRef, useEffect } from 'react';
 import urlVideo from './lenguadeseñas Saludos y modales.mp4'
 import styles from './CamVideo.module.css';
+import dataStore from './dataStore.js';
+const modeDev = 0;
 export default function CamVideo() {
     const {videoRef, canvasRef, prosesRef} = script();
     return (<>
         <div className={styles.main}>
-            <video ref={videoRef} src={urlVideo} autoPlay muted loop></video>
+            <video ref={videoRef} src={urlVideo} muted loop></video>
+            {/* <video ref={videoRef} src={urlVideo} autoPlay muted loop></video> */}
+            {/* <video ref={videoRef} muted autoPlay></video> */}
             <canvas className={styles.drawPoints} ref={canvasRef}></canvas>
             <canvas className={styles.proses} ref={prosesRef}></canvas>
         </div>
@@ -20,12 +24,14 @@ function script(){
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const proses = prosesRef.current;
+      // getWebCam().then(stream => {video.srcObject = stream;})
       if (!video || !canvas) return;
       const handleLoadedMetadata = () => {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.style.width = `${video.videoWidth}px`;
         canvas.style.height = `${video.videoHeight}px`;
+        canvas.style.backgroundColor = 'white';
         
         proses.width = video.videoWidth;
         proses.height = video.videoHeight;
@@ -37,15 +43,36 @@ function script(){
         const offscreenProses = proses.transferControlToOffscreen();
         const getImageData = getImage(video);
         new function(){
+          let previous = null;
+          if (modeDev == 0) {
+            previous = dataStore.exist() ? dataStore.get() : null;
+          }
           worker.postMessage({ 
             type: 'startup', 
+            previous,
             canvas: offscreen, 
-            proses: offscreenProses 
+            proses: offscreenProses,
+            modeDev
           }, [offscreen, offscreenProses]);
           
           this.workerStarted = function() {
-            const image = getImageData();
-            worker.postMessage({ type: 'sendImage', frame: image });}
+            let image = null;
+            if (modeDev == 0) {
+              image = dataStore.exist()? null:getImageData()
+            }else{image = getImageData();}
+            worker.postMessage({ 
+              type: 'sendImage',  
+              frame: image 
+            });
+          }
+
+          this.previousData = function(data) {
+            if (modeDev == 0) {
+              console.log("data recording =>", data);
+              dataStore.save(data.data);
+            }
+          }
+          
           const refThis = this;
           worker.onmessage = function(e) {
               const refFunctionThis = refThis[e.data.type]
@@ -68,4 +95,8 @@ function getImage(video) {
       frameCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
       return frameCtx.getImageData(0, 0, frameCanvas.width, frameCanvas.height)
     };
+  }
+
+  async function getWebCam() {
+      return navigator.mediaDevices.getUserMedia({video: true});
   }
