@@ -12,7 +12,7 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zingal": "^1.0.0"
+    "zingal": "^1.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
