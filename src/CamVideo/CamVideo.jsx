@@ -7,9 +7,8 @@ export default function CamVideo() {
     const {videoRef, canvasRef, prosesRef} = script();
     return (<>
         <div className={styles.main}>
-            <video ref={videoRef} src={urlVideo} muted loop></video>
-            {/* <video ref={videoRef} src={urlVideo} autoPlay muted loop></video> */}
-            {/* <video ref={videoRef} muted autoPlay></video> */}
+            {modeDev == 0?  <video ref={videoRef} src={urlVideo} muted loop></video>:null}
+            {modeDev == 1?  <video ref={videoRef} muted autoPlay></video>:null}
             <canvas className={styles.drawPoints} ref={canvasRef}></canvas>
             <canvas className={styles.proses} ref={prosesRef}></canvas>
         </div>
@@ -24,14 +23,15 @@ function script(){
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const proses = prosesRef.current;
-      // getWebCam().then(stream => {video.srcObject = stream;})
+      if (modeDev == 1){getWebCam().then(stream => {video.srcObject = stream;})}
       if (!video || !canvas) return;
       const handleLoadedMetadata = () => {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.style.width = `${video.videoWidth}px`;
         canvas.style.height = `${video.videoHeight}px`;
-        canvas.style.backgroundColor = 'white';
+        canvas.style.backgroundColor = modeDev==0?'white':'transparent';
+        canvas.style.backgroundColor = dataStore.exist() && modeDev==0?'white':'transparent';
         
         proses.width = video.videoWidth;
         proses.height = video.videoHeight;
@@ -46,7 +46,11 @@ function script(){
           let previous = null;
           if (modeDev == 0) {
             previous = dataStore.exist() ? dataStore.get() : null;
+            if (previous== null) {
+              video.play();
+            }
           }
+
           worker.postMessage({ 
             type: 'startup', 
             previous,
@@ -54,6 +58,40 @@ function script(){
             proses: offscreenProses,
             modeDev
           }, [offscreen, offscreenProses]);
+
+          proses.addEventListener('mousemove', (e) => {
+            const rect = proses.getBoundingClientRect();
+            worker.postMessage({
+              type: 'mousemove',
+              canvas: getAbsolutePosition(proses),
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top
+            });
+          });
+          
+          // click down
+          proses.addEventListener('mousedown', (e) => {
+            const rect = proses.getBoundingClientRect();
+            worker.postMessage({
+              type: 'click',
+              canvas: getAbsolutePosition(proses),
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+              status: true
+            });
+          });
+
+          // click up
+          proses.addEventListener('mouseup', (e) => {
+            const rect = proses.getBoundingClientRect();
+            worker.postMessage({
+              type: 'click',
+              canvas: getAbsolutePosition(proses),
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+              status: false
+            });
+          });
           
           this.workerStarted = function() {
             let image = null;
@@ -100,3 +138,15 @@ function getImage(video) {
   async function getWebCam() {
       return navigator.mediaDevices.getUserMedia({video: true});
   }
+
+
+  function getAbsolutePosition(element) {
+    const rect = element.getBoundingClientRect();
+    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+    return {
+        x: rect.left + scrollLeft,
+        y: rect.top + scrollTop
+    };
+}

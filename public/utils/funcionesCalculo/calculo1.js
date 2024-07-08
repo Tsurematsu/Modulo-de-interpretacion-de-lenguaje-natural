@@ -129,8 +129,6 @@ export default function calculo1({hands, pose, endTime, ctx, canvas}){
 
 
 
-
-
 function color (r, g, b){ return `rgb(${r},${g},${b})`; }
 function color_aleatorio() {
     return color(Math.floor(Math.random() * 255), Math.floor(Math.random() * 255), Math.floor(Math.random() * 255));

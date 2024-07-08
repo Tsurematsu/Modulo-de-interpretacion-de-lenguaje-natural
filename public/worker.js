@@ -11,6 +11,24 @@ new function(){
     let previousData = null;
     let counter = 0;
     let modeDev = 0;
+    let PositionMouse = {x: 0, y: 0};
+    let ClickMouse = {
+        x: 0, 
+        y: 0, 
+        status: false
+    };
+
+    this.mousemove = function(data){
+        PositionMouse = {x: data.x, y: data.y};
+    }
+    this.click = function(data){
+        ClickMouse = {
+            x: data.x, 
+            y: data.y, 
+            status: data.status
+        };
+    }
+
     this.startup = async function(data){
         console.log('worker starting');
         canvas = data.canvas;
@@ -33,6 +51,7 @@ new function(){
         self.postMessage({type: 'workerStarted'});
         console.log('worker started');
     }
+    let counterNum = 1;
     this.sendImage = async function(data){
         const frame = data.frame;
         let hands = [];
@@ -45,7 +64,7 @@ new function(){
             if (detectorPose !== null) {pose = await detectorPose.estimatePoses(frame);}   
             time = performance.now() - startTime;
             if (modeDev == 0) {
-                if(dataRecording.length < 500){
+                if(dataRecording.length < 800){
                     dataRecording.push({hands, pose, time});
                     console.log("Recording => ", dataRecording.length);
                 }else if(statusRecording){
@@ -60,16 +79,17 @@ new function(){
             hands = previousData[counter].hands;
             pose = previousData[counter].pose;
             time = previousData[counter].time;
-            counter++;
+            counter = counter + counterNum;
         }
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        let retorno = statistics.loop({hands, pose, endTime: time});
+        let retorno = statistics.loop({hands, pose, endTime: time, PositionMouse, ClickMouse});
         if (retorno.timeLapse !== undefined) timeLapse = retorno.timeLapse; 
+        if (retorno.suma !== undefined) counterNum = retorno.suma;
         
         if (pose.length > 0) {draw.points(pose[0].keypoints, "red", ctx);}
         if (hands.length > 0) {draw.points(hands[0].keypoints, "blue", ctx);}
         if (hands.length == 2) {draw.points(hands[1].keypoints, "green", ctx);}
-
+        
         await new Promise(resolve => setTimeout(resolve, timeLapse));
         self.postMessage({type: 'workerStarted'});
     }
